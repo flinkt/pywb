@@ -358,9 +358,11 @@ def create_wb_router(passed_config=None):
 
     # default to regular archival mode
     router = ArchivalRouter
+    print "ROUTER IS ArchivalRouter!!!"
 
     if config.get('enable_http_proxy', False):
         router = ProxyArchivalRouter
+        print "ROUTER IS ProxyArchivalRouter!!!"
 
         view = init_view(config, 'proxy_select_html')
 
