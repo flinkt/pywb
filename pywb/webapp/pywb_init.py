@@ -250,7 +250,7 @@ class DirectoryCollsLoader(object):
 
 
 #=================================================================
-def create_wb_router(passed_config=None):
+def create_wb_router(passed_config=None, regular_router_constructor=ArchivalRouter, proxy_router_constructor=ProxyArchivalRouter):
     passed_config = passed_config or {}
 
     defaults = load_yaml_config(DEFAULT_CONFIG)
@@ -357,12 +357,10 @@ def create_wb_router(passed_config=None):
             route.handler.resolve_refs(handler_dict)
 
     # default to regular archival mode
-    router = ArchivalRouter
-    print "ROUTER IS ArchivalRouter!!!"
+    router_constructor = regular_router_constructor
 
     if config.get('enable_http_proxy', False):
-        router = ProxyArchivalRouter
-        print "ROUTER IS ProxyArchivalRouter!!!"
+        router_constructor = proxy_router_constructor
 
         view = init_view(config, 'proxy_select_html')
 
@@ -377,8 +375,10 @@ def create_wb_router(passed_config=None):
         if view:
             passed_config['proxy_options']['proxy_cert_download_view'] = view
 
-    # Finally, create wb router
-    return router(
+    print "ROUTER IS %s!!!" % regular_router_constructor
+
+   # Finally, create wb router
+    return router_constructor(
         routes,
         port=port,
         abs_path=config.get('absolute_paths', True),
