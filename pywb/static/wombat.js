@@ -160,6 +160,10 @@ var wombat_internal = function($wbwindow) {
             return url;
         }
 
+        if (url.indexOf("-dev.rememberthis.io") != -1 || url.indexOf("youtube") != -1) {
+            return url;
+        }
+
         // proxy mode: If no wb_replay_prefix, only rewrite https:// -> http://
         if (!wb_replay_prefix) {
             if (starts_with(url, HTTPS_PREFIX)) {
@@ -208,7 +212,7 @@ var wombat_internal = function($wbwindow) {
                 return url;
             }
 
-            // relative collection 
+            // relative collection
             if ((url.indexOf(wb_rel_prefix) == 1) && (url.indexOf("http") > 1)) {
                 var scheme_sep = url.indexOf(":/");
                 if (scheme_sep > 0 && url[scheme_sep + 2] != '/') {
@@ -559,7 +563,7 @@ var wombat_internal = function($wbwindow) {
         this.reload = function() {
             return this._orig_loc.reload();
         }
-       
+
         this.orig_getter = function(prop) {
             return this._orig_loc[prop];
         }
@@ -569,7 +573,7 @@ var wombat_internal = function($wbwindow) {
         }
 
         init_loc_override(this, this.orig_setter, this.orig_getter);
-        
+
         set_loc(this, orig_loc.href);
 
         this.toString = function() {
@@ -694,7 +698,7 @@ var wombat_internal = function($wbwindow) {
 
         $wbwindow.Crypto.prototype.getRandomValues = new_getrandom;
         $wbwindow.crypto.getRandomValues = new_getrandom;
-    } 
+    }
 
     //============================================
     function override_history_func(func_name) {
@@ -1368,7 +1372,7 @@ var wombat_internal = function($wbwindow) {
         override_attr($wbwindow.HTMLInputElement.prototype, "src", "oe_");
         override_attr($wbwindow.HTMLEmbedElement.prototype, "src", "oe_");
         override_attr($wbwindow.HTMLObjectElement.prototype, "data", "oe_");
-     
+
         override_anchor_elem();
 
         var style_proto = $wbwindow.CSSStyleDeclaration.prototype;
@@ -1402,7 +1406,7 @@ var wombat_internal = function($wbwindow) {
 
         for (var i = 0; i < URL_PROPS.length; i++) {
             save_prop(URL_PROPS[i]);
-        } 
+        }
 
         var anchor_setter = function(prop, value) {
             var func = anchor_orig["set_" + prop];
@@ -1484,7 +1488,7 @@ var wombat_internal = function($wbwindow) {
             init_iframe_wombat(this);
             return orig_getter.call(this);
         };
-        
+
         def_prop(obj, prop, orig_setter, getter);
         obj["_get_" + prop] = orig_getter;
     }
@@ -1509,7 +1513,7 @@ var wombat_internal = function($wbwindow) {
                 //}
                 text = rewrite_html(text);
             }
- 
+
             return orig_insertAdjacentHTML.call(this, position, text);
         }
 
@@ -1644,7 +1648,7 @@ var wombat_internal = function($wbwindow) {
         }
 
         var orig = $wbwindow.postMessage;
-        
+
         $wbwindow.__orig_postMessage = orig;
 
         var postmessage_rewritten = function(message, targetOrigin, transfer) {
@@ -1666,14 +1670,14 @@ var wombat_internal = function($wbwindow) {
                 this.__WB_win_id[source.__WB_id] = source;
 
                 src_id = source.__WB_id;
-                
+
                 window.__WB_source = undefined;
             } else {
                 from = window.WB_wombat_location.origin;
             }
 
             var to = targetOrigin;
-            
+
             if (to == this.location.origin) {
                 to = "*";
             } else {
@@ -1694,7 +1698,7 @@ var wombat_internal = function($wbwindow) {
             }
 
             //console.log("Sending " + from + " -> " + to + " (" + targetOrigin + ") " + message);
-            
+
             return orig.call(this, new_message, targetOrigin, transfer);
         }
 
@@ -1746,7 +1750,7 @@ var wombat_internal = function($wbwindow) {
 
         // ADD
         var _orig_addEventListener = $wbwindow.addEventListener;
-        
+
         var addEventListener_rewritten = function(type, listener, useCapture) {
             if (type == "message") {
                 var win = this;
@@ -1759,12 +1763,12 @@ var wombat_internal = function($wbwindow) {
                 return _orig_addEventListener.call(this, type, listener, useCapture);
             }
         }
- 
+
         $wbwindow.addEventListener = addEventListener_rewritten;
 
         // REMOVE
         var _orig_removeEventListener = $wbwindow.removeEventListener;
-        
+
         var removeEventListener_rewritten = function(type, listener, useCapture) {
             if (type == "message") {
                 var mapped = listen_map[listener];
@@ -1972,7 +1976,7 @@ var wombat_internal = function($wbwindow) {
 
         //var src = iframe.src;
         var src = wb_getAttribute.call(iframe, "src");
-        
+
         if (!src || src == "" || src == "about:blank" || src.indexOf("javascript:") >= 0) {
             win._WBWombat = wombat_internal(win);
             win._wb_wombat = new win._WBWombat(wb_info);
@@ -2101,7 +2105,39 @@ var wombat_internal = function($wbwindow) {
             prefix += "/";
         }
 
-        return prefix + url
+        //return prefix + url
+        //debugger;
+
+        var pos = url.indexOf("//")
+        if (pos == -1) {
+            // Let relative urls remain as-is.
+            return url
+        }
+        else {
+            // Non-relative URL:
+            pos += 2;
+            const pos2 = url.indexOf("/", pos+1)
+            if (pos2 == -1)
+              pos2 = url.length - 1
+            const old_domain = url.substring(pos, pos2)
+
+            var host_ext = prefix.substr(7, prefix.length-8)
+            if (host_ext.indexOf(".") == host_ext.lastIndexOf("."))
+                host_ext = "-proxy." + host_ext
+            else
+                host_ext = "-proxy-" + host_ext
+
+            const new_domain = old_domain.replace(/-/g,"--").replace(/\./g,"-") + host_ext
+
+            var new_url = url.replace(old_domain, new_domain)
+
+            if (new_url.indexOf("undefined") != -1) {
+                debugger;
+                debugger;
+            }
+
+            return new_url
+        }
     }
 
     //============================================
@@ -2186,7 +2222,7 @@ var wombat_internal = function($wbwindow) {
         // init insertAdjacentHTML() override
         init_insertAdjacentHTML_override();
 
-        // iframe.contentWindow and iframe.contentDocument overrides to 
+        // iframe.contentWindow and iframe.contentDocument overrides to
         // ensure wombat is inited on the iframe $wbwindow!
         override_iframe_content_access("contentWindow");
         override_iframe_content_access("contentDocument");
