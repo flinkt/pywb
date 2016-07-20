@@ -250,12 +250,16 @@ class DirectoryCollsLoader(object):
 
 
 #=================================================================
-def create_wb_router(passed_config=None, regular_router_constructor=ArchivalRouter, proxy_router_constructor=ProxyArchivalRouter):
+def create_wb_router(passed_config=None):
     passed_config = passed_config or {}
 
     defaults = load_yaml_config(DEFAULT_CONFIG)
 
     config = DictChain(passed_config, defaults)
+
+    regular_router_class = config.get("regular_router_class", ArchivalRouter)
+    proxy_router_class = config.get("proxy_router_class", ProxyArchivalRouter)
+    default_route_class = config.get("route_class", Route)
 
     routes = []
 
@@ -277,7 +281,7 @@ def create_wb_router(passed_config=None, regular_router_constructor=ArchivalRout
     if config.get('enable_memento', False):
         request_class = MementoRequest
     else:
-        request_class = WbRequest
+        request_class = config.get("wb_request_class", WbRequest)
 
     # store live and replay handlers
     handler_dict = {}
@@ -290,7 +294,7 @@ def create_wb_router(passed_config=None, regular_router_constructor=ArchivalRout
     jinja_env.globals.update(config.get('template_globals', {}))
 
     for static_name, static_path in six.iteritems(static_routes):
-        routes.append(Route(static_name, StaticHandler(static_path)))
+        routes.append(default_route_class(static_name, StaticHandler(static_path)))
 
     for name, value in six.iteritems(collections):
         if isinstance(value, BaseHandler):
@@ -303,7 +307,7 @@ def create_wb_router(passed_config=None, regular_router_constructor=ArchivalRout
             continue
 
         route_config = init_route_config(value, config)
-        route_class = route_config.get('route_class', Route)
+        route_class = route_config.get('route_class', default_route_class)
 
         if route_config.get('index_paths') == '$liveweb':
             live = create_live_handler(route_config)
@@ -357,10 +361,10 @@ def create_wb_router(passed_config=None, regular_router_constructor=ArchivalRout
             route.handler.resolve_refs(handler_dict)
 
     # default to regular archival mode
-    router_constructor = regular_router_constructor
+    router_constructor = regular_router_class
 
     if config.get('enable_http_proxy', False):
-        router_constructor = proxy_router_constructor
+        router_constructor = proxy_router_class
 
         view = init_view(config, 'proxy_select_html')
 
@@ -375,7 +379,7 @@ def create_wb_router(passed_config=None, regular_router_constructor=ArchivalRout
         if view:
             passed_config['proxy_options']['proxy_cert_download_view'] = view
 
-    print "ROUTER IS %s!!!" % regular_router_constructor
+    print "ROUTER IS %s!!!" % regular_router_class
 
    # Finally, create wb router
     return router_constructor(

@@ -137,6 +137,7 @@ def init_app(init_func, load_yaml=True, config_file=None, config=None):
                         level=logging.DEBUG)
     logging.debug('')
 
+    wsgiapp_class = None
     try:
         config = config or {}
         if load_yaml:
@@ -151,6 +152,7 @@ def init_app(init_func, load_yaml=True, config_file=None, config=None):
             if os.path.isfile(config_file):
                 config = load_yaml_config(config_file)
 
+        wsgiapp_class = config.get('wsgiapp_class', WSGIApp)
         wb_router = init_func(config)
     except:
         msg = '*** pywb app init FAILED config from "%s"!\n'
@@ -160,7 +162,7 @@ def init_app(init_func, load_yaml=True, config_file=None, config=None):
         msg = '*** pywb app inited with config from "%s"!\n'
         logging.debug(msg, init_func.__name__)
 
-    return WSGIApp(wb_router)
+    return wsgiapp_class(wb_router)
 
 
 #=================================================================
