@@ -160,8 +160,34 @@ var wombat_internal = function($wbwindow) {
             return url;
         }
 
-        if (url.indexOf("-dev.rememberthis.io") != -1 || url.indexOf("youtube") != -1) {
-            return url;
+        // Skip urls in our exclusion list.
+
+        var url_no_protocol = url.replace(/^.*:\/\//, '')
+        if (url_no_protocol != url) {
+            has_domain = true
+        }
+        else {
+            if (url.indexOf("//") == 0) {
+                url_no_protcol = url.substring(2)
+                has_domain = true
+            }
+            else if (url.indexOf("/") != 0) {
+                has_domain = false
+            }
+            else {
+                has_domain = true
+            }
+        }
+        if (has_domain) {
+            var pos = url_no_protocol.indexOf("/")
+            if (pos == -1)
+              url_domain = url_no_protocol
+            else
+              url_domain = url_no_protocol.substring(0, pos)
+
+            for (var no_rewrite_domain in rem_no_rewrite)
+                if (url_domain.indexOf(no_rewrite_domain) != -1)
+                    return url
         }
 
         // proxy mode: If no wb_replay_prefix, only rewrite https:// -> http://
@@ -2121,22 +2147,15 @@ var wombat_internal = function($wbwindow) {
               pos2 = url.length - 1
             const old_domain = url.substring(pos, pos2)
 
-            var host_ext = prefix.substr(7, prefix.length-8)
-            if (host_ext.indexOf(".") == host_ext.lastIndexOf("."))
-                host_ext = "-proxy." + host_ext
-            else
-                host_ext = "-proxy-" + host_ext
-
-            const new_domain = old_domain.replace(/-/g,"--").replace(/\./g,"-") + host_ext
-
-            var new_url = url.replace(old_domain, new_domain)
-
-            if (new_url.indexOf("undefined") != -1) {
-                debugger;
-                debugger;
+            if (old_domain.endsWith(rem_hostname_extension))
+                return url
+            else {
+                const new_domain = old_domain.replace(/-/g, "--").replace(/\./g, "-") + rem_hostname_extension
+                var new_url = url.replace(old_domain, new_domain)
+                if (new_url.indexOf("--") != -1 || new_url.indexOf("undefined") != -1)
+                    debugger;
+                return new_url;
             }
-
-            return new_url
         }
     }
 
@@ -2271,6 +2290,22 @@ var wombat_internal = function($wbwindow) {
         this.rewrite_url = rewrite_url;
         this.watch_elem = watch_elem;
     }
+
+    // rememberthis settings
+    var rem_hostname = wbinfo.prefix.substr(7, wbinfo.prefix.length-8)
+    var rem_hostname_extension;
+    if (rem_hostname.indexOf(".") == rem_hostname.lastIndexOf("."))
+        rem_hostname_extension = "-proxy." + rem_hostname
+    else
+        rem_hostname_extension = "-proxy-" + rem_hostname
+
+    // some URLs should not be rewritten:
+    var rem_no_rewrite = {
+        "youtube.com": true,
+        "fonts.gstatic.com": true
+    }
+    rem_no_rewrite[rem_hostname] = true;
+
 
     function init_top_frame($wbwindow) {
         // proxy mode
